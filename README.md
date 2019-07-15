@@ -23,10 +23,10 @@ It has the following endpoints:
         * Requires `Authorization` in header for Moneybird 
         * Request `Body` requires `ids` with id-list to create export file
         * Creates a new export file
-* `/files` to retrieve a file from the internal S3 storage
+* `/files` to retrieve a file from the public S3 storage
     * `GET`
         * needs `?filename=` parameter
-        * retrieves a file from S3 (also used internally)
+        * retrieves a file from S3
     * `POST`
         * Request `Body` requires `{ filename, data }` of file to store
     * `DELETE`

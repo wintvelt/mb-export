@@ -1,6 +1,6 @@
 // Read and write files on S3
 var { S3 } = require('aws-sdk');
-const { secretID, secretKey, bucketName } = require('./SECRETS');
+const { secretID, secretKey, publicBucket } = require('./SECRETS');
 const { response } = require('./helpers-api');
 
 
@@ -17,7 +17,7 @@ exports.fileHandler = function (event) {
         case 'GET':
             if (!event.queryStringParameters || !event.queryStringParameters.filename) return response(400, 'Bad request');
             const getParams = {
-                Bucket: bucketName,
+                Bucket: publicBucket,
                 Key: decodeURI(event.queryStringParameters.filename)
             }
             return getPromise(getParams)
@@ -32,7 +32,7 @@ exports.fileHandler = function (event) {
             const postBody = JSON.parse(event.body);
             if (!postBody.filename || !postBody.data) return response(400, 'Bad request');
             const postParams = {
-                Bucket: bucketName,
+                Bucket: publicBucket,
                 Key: postBody.filename,
                 Body: JSON.stringify(postBody.data),
                 ContentType: 'application/json'
@@ -49,7 +49,7 @@ exports.fileHandler = function (event) {
             const delBody = JSON.parse(event.body);
             if (!delBody.filename) return response(400, 'Bad request');
             const delParams = {
-                Bucket: bucketName,
+                Bucket: publicBucket,
                 Key: delBody.filename
             }
             return deletePromise(delParams)
