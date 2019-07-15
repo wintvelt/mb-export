@@ -1,6 +1,6 @@
 // functions to create an export file
 const { response, safeParse } = require('./helpers-api');
-const { putPromise, getFile } = require('./s3functions');
+const { putPromise, deletePromise, getFile } = require('./s3functions');
 const { publicBucket, accessToken, adminCode } = require('./SECRETS');
 const { getMoneyData, retrieveMoneyData } = require('./helpers-moneybird');
 
@@ -9,8 +9,10 @@ const moment = require('moment');
 
 // MAIN HANDLER
 exports.exportHandler = function (event) {
-    const queryMethod = event.queryStringParameters.method
-    const eventMethod = (process.env.AWS_SAM_LOCAL) ? queryMethod : event.httpMethod;
+    if (process.env.AWS_SAM_LOCAL && (!event.queryStringParameters.method || !event.queryStringParameters.filename)) {
+        return response(403, 'bad request');
+    }
+    const eventMethod = (process.env.AWS_SAM_LOCAL) ? event.queryStringParameters.method : event.httpMethod;
 
     switch (eventMethod) {
         case 'POST':
@@ -120,7 +122,8 @@ function createExport(data) {
             row.font = { bold: false }
         }
     });
-    const exportName = 'purchase-export-' + moment().format('YYYYMMDD') + '.xlsx';
+    const dateStampFormat = (process.env.AWS_SAM_LOCAL) ? 'YYYYMMDD' : 'YYYYMMDD HHmmss';
+    const exportName = 'purchase-export-' + moment().format(dateStampFormat) + '.xlsx';
 
     const exportFile = workbook.xlsx.writeBuffer()
         .then(function (buffer) {
@@ -218,11 +221,12 @@ function makeDetailRow(record, detail, dataObj) {
 
 // Delete handler (to update summary and delete public file)
 function exportDeleteHandler(event) {
-    if (!body.filename || body.filename.slice(0, 16) !== 'purchase-export-') return response(403, 'Bad request');
+    const filename = (process.env.AWS_SAM_LOCAL) ? event.queryStringParameters.filename : JSON.parse(event.body).filename;
+    if (!filename || filename.slice(0, 16) !== 'purchase-export-') return response(403, 'Bad request');
 
     return Promise.all([
         getFile('incoming-summary-list.json', publicBucket),
-        body.filename
+        filename
     ])
         .then(updateFiles)
         .then(res => response(200, res))
@@ -244,21 +248,23 @@ function updateFiles(data) {
             newSums.push(item);
         }
     }
-    if (!fileInExport) return 'Nothing to delete';
+    if (!fileInExport) return deletePromise({
+        Bucket: publicBucket,
+        Key: filename
+    });
 
     return Promise.all([
         putPromise({
             ACL: 'public-read',
             Bucket: publicBucket,
             Key: 'incoming-summary-list.json',
-            Body: JSON.stringify(newSum),
+            Body: JSON.stringify(newSums),
             ContentType: 'application/json'
         }),
         deletePromise({
             Bucket: publicBucket,
             Key: filename
-        }),
-
+        })
     ])
 }
 
