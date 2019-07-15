@@ -22,7 +22,7 @@ Resources:
   IncomingFunction:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri: src/
+      CodeUri: 
       Handler: app.handler
       Runtime: nodejs10.x
       Events:
