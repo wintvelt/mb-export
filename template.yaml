@@ -40,7 +40,7 @@ Resources:
           Type: Api
           Properties:
             Path: /export
-            Method: get
+            Method: any
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function

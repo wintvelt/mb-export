@@ -23,14 +23,21 @@ It has the following endpoints:
         * Requires `Authorization` in header for Moneybird 
         * Request `Body` requires `ids` with id-list to create export file
         * Creates a new export file
+    * `DELETE`
+        * Request `Body` requires `{ filename }` with name of export file to delete
+        * Will update the summary file (to remove export indicator in items)
+        * And delete the filename from public S3 bucket
+
 * `/files` to retrieve a file from the public S3 storage
     * `GET`
         * needs `?filename=` parameter
         * retrieves a file from S3
-    * `POST`
+    * `POST` (**Unsafe**)
         * Request `Body` requires `{ filename, data }` of file to store
-    * `DELETE`
+        * *Use with caution: overwriting official public files may break the state of sync*
+    * `DELETE` (**Unsafe**)
         * Request `Body` requires `{ filename }` of file to delete
+        * *Use with caution: deleting official public files may break the state of sync*
 
 ## Files stored for sync internally
 The function keeps the following files on S3 for synchronisation:
@@ -44,7 +51,8 @@ The function keeps the following files on S3 for synchronisation:
 ## Export functions under the hood
 The export function has the following flow:
 
-1. Retrieve `incoming-summary-list.json` from public S3 (in `exportHandler`)
+For `POST` (to create new export file)
+1. Retrieve `incoming-summary-list.json` from public S3 (in `exportPostHandler`)
     * pass file on to next, together with id-list from request and auth
 2. Obtain relevant data from Moneybird (`retrieve`)
     * filter summary-list using id-list from request (if empty, then abort)
@@ -58,8 +66,16 @@ The export function has the following flow:
 3. Create the export table (`createExport`)
     * On public S3 store save:
         * `purchase-export-[datetime-stamp].xlsx`
-        * `incoming-summary-list.json` (with updated export filename)
+        * `incoming-summary-list.json` (with updated export filename and reset of mutations with exported items)
 
+For `DELETE` (to delete an export file)
+1. Retrieve `incoming-summary-list.json` from public S3 (in `exportDeleteHandler`)
+    * pass file on to next, together with filename
+2. Update summary list and delete file from public
+    * Update the summary-list, to remove filename reference from relevant entries
+    * only if there are updates to summary-list:
+        * Save new `incoming-summary-list.json` on public S3 store
+        * Delete the file from S3 store
 
 ## Sync function under the hood
 The sync function has the following flow:

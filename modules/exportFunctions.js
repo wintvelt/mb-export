@@ -7,9 +7,30 @@ const { getMoneyData, retrieveMoneyData } = require('./helpers-moneybird');
 const Excel = require('exceljs/modern.nodejs');
 const moment = require('moment');
 
+// MAIN HANDLER
 exports.exportHandler = function (event) {
-    if (event.httpMethod !== 'GET') return response(405, 'Method not allowed');
+    const queryMethod = event.queryStringParameters.method
+    const eventMethod = (process.env.AWS_SAM_LOCAL) ? queryMethod : event.httpMethod;
 
+    switch (eventMethod) {
+        case 'POST':
+            return exportPostHandler(event);
+            break;
+
+        case 'DELETE':
+            return exportDeleteHandler(event);
+            break;
+
+        default:
+            return response(405, 'Method not allowed');
+            break;
+    }
+
+}
+
+// Export POST handler
+// to create new export
+function exportPostHandler(event) {
     const body = (process.env.AWS_SAM_LOCAL) ? { ids: ["260703856723232639", "260736893579167014"] } : JSON.parse(event.body);
     const auth = (process.env.AWS_SAM_LOCAL) ? 'Bearer ' + accessToken : event.headers.Authorization;
 
@@ -24,7 +45,6 @@ exports.exportHandler = function (event) {
         .then(createExport)
         .then(res => response(200, res))
         .catch(err => response(500, "Oops, server error " + err))
-
 }
 
 // function to process summary-list
@@ -81,29 +101,10 @@ function createExport(data) {
 
     var sheet = workbook.addWorksheet('Moblybird export');
     sheet.addRow([
-        'id',
-        'referentie',
-        'status',
-        'datum',
-        'vervaldatum',
-        'contact',
-        'contactnummer',
-        'valuta',
-        'betaald op',
-        'aantal',
-        'aantal (decimaal)',
-        'omschrijving',
-        'categorie',
-        'categorienummer',
-        'totaalprijs exclusief btw',
-        'btw-tarief',
-        'totaalprijs inclusief btw',
-        'totaalprijs exclusief btw (EUR)',
-        'totaalprijs inclusief btw (EUR)',
-        'btw-tarief naam',
-        'btw',
-        'begin periode',
-        'eind periode'
+        'id', 'referentie', 'status', 'datum', 'vervaldatum', 'contact', 'contactnummer', 'valuta', 'betaald op',
+        'aantal', 'aantal (decimaal)', 'omschrijving', 'categorie', 'categorienummer', 'totaalprijs exclusief btw',
+        'btw-tarief', 'totaalprijs inclusief btw', 'totaalprijs exclusief btw (EUR)', 'totaalprijs inclusief btw (EUR)',
+        'btw-tarief naam', 'btw', 'begin periode', 'eind periode'
     ]);
 
     const exportRows = makeExportRows(dataObj);
@@ -198,39 +199,88 @@ function makeDetailRow(record, detail, dataObj) {
     newRow.push(detail.amount);
     newRow.push(tryParse(detail.amount_decimal));
     newRow.push(detail.description);
-    newRow.push(getLedger('name', detail.ledger_account_id, dataObj.ledgers));
-    newRow.push(tryParse(getLedger('account_id', detail.ledger_account_id, dataObj.ledgers)));
+    newRow.push(getField('name', detail.ledger_account_id, dataObj.ledgers));
+    newRow.push(tryParse(getField('account_id', detail.ledger_account_id, dataObj.ledgers)));
     newRow.push(tryParse(detail.total_price_excl_tax_with_discount));
-    const taxrate = tryParse(getTax('percentage', detail.tax_rate_id, dataObj.taxRates))
+    const taxrate = tryParse(getField('percentage', detail.tax_rate_id, dataObj.taxRates))
     newRow.push(taxrate);
     newRow.push(tryParse(detail.price));
     const eurPriceEx = tryParse(detail.total_price_excl_tax_with_discount_base);
     newRow.push(eurPriceEx);
     const vat = eurPriceEx * taxrate / 100;
     newRow.push(eurPriceEx + vat);
-    newRow.push(getTax('name', detail.tax_rate_id, dataObj.taxRates));
+    newRow.push(getField('name', detail.tax_rate_id, dataObj.taxRates));
     newRow.push(vat);
     newRow.push(getPeriod('from', detail.period));
     newRow.push(getPeriod('to', detail.period));
     return newRow;
 }
 
-// helper to get data from ledgers
-function getLedger(fieldName, id, ledgers) {
-    var value = null;
-    for (let i = 0; i < ledgers.length; i++) {
-        const ledger = ledgers[i];
-        if (ledger.id === id) { value = ledger[fieldName] }
-    }
-    return value;
+// Delete handler (to update summary and delete public file)
+function exportDeleteHandler(event) {
+    if (!body.filename || body.filename.slice(0, 16) !== 'purchase-export-') return response(403, 'Bad request');
+
+    return Promise.all([
+        getFile('incoming-summary-list.json', publicBucket),
+        body.filename
+    ])
+        .then(updateFiles)
+        .then(res => response(200, res))
+        .catch(err => response(500, "Oops, server error " + err))
 }
 
-// helper to get data from tax rates
-function getTax(fieldName, id, rates) {
+function updateFiles(data) {
+    const oldSums = data[0];
+    const filename = data[1];
+    var fileInExport = false;
+    var newSums = [];
+    for (let i = 0; i < oldSums.length; i++) {
+        const item = oldSums[i];
+        if (item.fileName && item.fileName === filename) {
+            delete item.fileName;
+            fileInExport = true;
+            newSums.push(item);
+        } else {
+            newSums.push(item);
+        }
+    }
+    if (!fileInExport) return 'Nothing to delete';
+
+    return Promise.all([
+        putPromise({
+            ACL: 'public-read',
+            Bucket: publicBucket,
+            Key: 'incoming-summary-list.json',
+            Body: JSON.stringify(newSum),
+            ContentType: 'application/json'
+        }),
+        deletePromise({
+            Bucket: publicBucket,
+            Key: filename
+        }),
+
+    ])
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// helper to get data from MoneyBird
+function getField(fieldName, id, mbList) {
     var value = null;
-    for (let i = 0; i < rates.length; i++) {
-        const rate = rates[i];
-        if (rate.id === id) { value = rate[fieldName] }
+    for (let i = 0; i < mbList.length; i++) {
+        const item = mbList[i];
+        if (item.id === id) { value = item[fieldName] }
     }
     return value;
 }
