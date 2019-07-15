@@ -7,13 +7,50 @@ Built for Finvision.
 To update the following files on the public S3 store:
 
 * [incoming-summary-list.json](https://moblybird-export-files.s3.eu-central-1.amazonaws.com/incoming-summary-list.json) file with summaries of all incoming purchasing invoices and receipts
-* [file-list-summary](https://moblybird-export-files.s3.eu-central-1.amazonaws.com/file-list-summary.json) list of all export files with filename, createdate, incomingCount
 * export files with name convention `purchase-export-[datetime-stamp].xlsx` 
 
 These files can be accessed by regular `GET` requests (also from browser),  
 at the path: https://moblybird-export-files.s3.eu-central-1.amazonaws.com/ (folder is not public)
 
-It has the following endpoints:
+## Public file structure and usage
+The `incoming-summary-list.json` file is a JSON list of objects with the following structure:
+
+* `id`: Moneybird document id, also used for internal reference (e.g. "260703856723232639")
+* `type`: Moneybird document type, (can be "purchase_invoice" | "receipt)
+* `createDate`: Date when the document was created in Moneybird (e.g. "2019-07-11T12:03:14.066Z")
+* `invoiceDate`: Date on the invoice (e.g. "2019-07-11")
+* `status`: State of the document in Moneybird (can be "new", "open", "late", "pending_payment", "late", "paid")
+* `fileName`: (optional) latest export file that included this document (e.g. "purchase-export-20190701 091055.xlsx")
+    * this field with not exist if a) document was never exported or b) export file was deleted through /export API
+* `mutations`: List of mutations since the last export (NB: only invoicedate or status changes are tracked)
+    * with the following structure
+        * `fieldName` name of field that changed (can be "status" or "invoiceDate")
+        * `oldValue`
+        * `newvalue`
+    * When a document is added to an export file, mutations will be cleared
+
+The file (available via public URL) can be used for the following actions:
+
+* show number of documents not yet exported
+    * with date-ranges (created and invoice date)
+    * with selection filters to export only a subset
+* selection tools for mutated documents (so they can be exported again)
+
+* show a list of available export files, each with summary info, e.g.
+    * number of documents in export
+    * number of documents in this export with mutations since export
+    * daterange from-to when these documents were created
+    * daterange from-to of invoice dates
+    * option to download the related export file (again)
+    * option to delete an export file (so that related docs can be exported again)
+* show number of documents not yet exported
+    * with date-ranges (created and invoice date)
+    * with selection filters to export only a subset
+* selection tools for mutated documents (so they can be exported again)
+
+
+## API Endpoints
+This package has the following endpoints:
 
 * `/sync` to sync with latest version of Moneybird
     * `GET`
@@ -39,15 +76,17 @@ It has the following endpoints:
         * Request `Body` requires `{ filename }` of file to delete
         * *Use with caution: deleting official public files may break the state of sync*
 
+
+
+---
+
+# Inner workings
 ## Files stored for sync internally
 The function keeps the following files on S3 for synchronisation:
 
 * `id-list-purchasing.json` ids and version numbers of latest state in Moneybird
 * `id-list-receipts.json` (same for receipts)
 
----
-
-# Inner workings
 ## Export functions under the hood
 The export function has the following flow:
 
