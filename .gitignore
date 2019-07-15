@@ -1,7 +1,7 @@
 
 # Created by https://www.gitignore.io/api/osx,node,linux,windows
 
-src/modules/SECRETS.js
+modules/SECRETS.js
 packaged.yaml
 
 ### Linux ###
