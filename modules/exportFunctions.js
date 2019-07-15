@@ -262,19 +262,6 @@ function updateFiles(data) {
     ])
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 // helper to get data from MoneyBird
 function getField(fieldName, id, mbList) {
     var value = null;
