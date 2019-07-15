@@ -1,0 +1,63 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Moneybird export for Finvision. Retrieves data from Moneybird, stores in S3, and returns csv file.
+  
+Globals:
+  Function:
+    Timeout: 10
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: mb-finvision-export
+    Description: Export function for finvision
+    Author: Wouter
+    License: license.txt
+    ReadmeUrl: README.md
+    Labels: ['Moneybird', 'Moblybird', 'Finvision', 'Mobly']
+    SemanticVersion: 0.0.1
+
+
+Resources:
+  IncomingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.handler
+      Runtime: nodejs10.x
+      Events:
+        File:
+          Type: Api
+          Properties:
+            Path: /files
+            Method: any
+        Sync:
+          Type: Api
+          Properties:
+            Path: /sync
+            Method: get
+        Export:
+          Type: Api
+          Properties:
+            Path: /export
+            Method: get
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  FilesApi:
+    Description: "API Gateway endpoint URL for Prod stage for files path of Incomingfunction"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/files/"
+  SyncApi:
+    Description: "API Gateway endpoint URL for Prod stage for Incoming function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/sync/"
+  ExportApi:
+    Description: "API Gateway endpoint URL for Prod stage for Incoming function"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/export/"
+  IncomingFunction:
+    Description: "Incoming Lambda Function ARN"
+    Value: !GetAtt IncomingFunction.Arn
+  IncomingFunctionIamRole:
+    Description: "Implicit IAM Role created for Incoming function"
+    Value: !GetAtt IncomingFunctionRole.Arn

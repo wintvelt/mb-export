@@ -1,0 +1,7 @@
+# sam-app LICENSE
+
+This is a test license. Never mind..
+
+## Requirements
+
+* This is some MD text. see how it looks
