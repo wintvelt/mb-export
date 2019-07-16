@@ -24,8 +24,8 @@ The `incoming-summary-list.json` file is a JSON list of objects with the followi
     * this field with not exist if a) document was never exported or b) export file was deleted through /export API
 * `mutations`: List of mutations since the last export (NB: only invoicedate or status changes are tracked)
     * with the following structure
-        * `fieldName` name of field that changed (can be "status" or "invoiceDate")
-        * `oldValue`
+        * `fieldName` name of field that changed (can be "status", "invoiceDate", "other")
+        * `oldValue` (only for status or invoiceDate)
         * `newvalue`
     * When a document is added to an export file, mutations will be cleared
 

@@ -177,6 +177,9 @@ function sumUpdate(type, newRecord, oldSum = {}) {
         { fieldName: "status", oldValue: oldSum.status, newValue: newSum.status }
         ];
     }
+    if (oldSum.createDate && newSum.mutations.length === 0) {
+        { fieldName; 'other' }
+    }
     return newSum;
 }
 
