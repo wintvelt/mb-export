@@ -1,5 +1,10 @@
 # Moblybird Finvision export
 
+### TODO
+* Sync function and Delete should return updated summary-list in JSON
+
+---
+
 This is a function that handles requests for exporting incoming invoices.
 For syncing with ExactOnline (or any other platform).
 Built for Finvision.

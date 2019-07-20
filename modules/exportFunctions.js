@@ -9,7 +9,8 @@ const moment = require('moment');
 
 // MAIN HANDLER
 exports.exportHandler = function (event) {
-    if (process.env.AWS_SAM_LOCAL && (!event.queryStringParameters.method || !event.queryStringParameters.filename)) {
+    if (process.env.AWS_SAM_LOCAL && (!event.queryStringParameters.method ||
+        (event.queryStringParameters.method === 'DELETE' && !event.queryStringParameters.filename))) {
         return response(403, 'bad request');
     }
     const eventMethod = (process.env.AWS_SAM_LOCAL) ? event.queryStringParameters.method : event.httpMethod;
@@ -210,8 +211,8 @@ function makeDetailRow(record, detail, dataObj) {
     newRow.push(tryParse(detail.price));
     const eurPriceEx = tryParse(detail.total_price_excl_tax_with_discount_base);
     newRow.push(eurPriceEx);
-    const vat = eurPriceEx * taxrate / 100;
-    newRow.push(eurPriceEx + vat);
+    const vatAmount = Math.round(eurPriceEx * taxrate) / 100;
+    newRow.push(eurPriceEx + vatAmount);
     newRow.push(getField('name', detail.tax_rate_id, dataObj.taxRates));
     newRow.push(vat);
     newRow.push(getPeriod('from', detail.period));
