@@ -214,7 +214,7 @@ function makeDetailRow(record, detail, dataObj) {
     const vatAmount = Math.round(eurPriceEx * taxrate) / 100;
     newRow.push(eurPriceEx + vatAmount);
     newRow.push(getField('name', detail.tax_rate_id, dataObj.taxRates));
-    newRow.push(vat);
+    newRow.push(vatAmount);
     newRow.push(getPeriod('from', detail.period));
     newRow.push(getPeriod('to', detail.period));
     return newRow;
