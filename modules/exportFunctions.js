@@ -1,7 +1,7 @@
 // functions to create an export file
 const { response, safeParse } = require('./helpers-api');
-const { putPromise, deletePromise, getFile } = require('./s3functions');
-const { publicBucket, accessToken, adminCode } = require('./SECRETS');
+const { putPromise, deletePromise, getFile, getFileWithDate } = require('./s3functions');
+const { publicBucket, bucketName, accessToken, adminCode } = require('./SECRETS');
 const { getMoneyData, retrieveMoneyData } = require('./helpers-moneybird');
 
 const Excel = require('exceljs/modern.nodejs');
@@ -9,13 +9,21 @@ const moment = require('moment');
 
 // MAIN HANDLER
 exports.exportHandler = function (event) {
-    if (process.env.AWS_SAM_LOCAL && (!event.queryStringParameters.method ||
-        (event.queryStringParameters.method === 'DELETE' && !event.queryStringParameters.filename))) {
-        return response(403, 'bad request');
-    }
-    const eventMethod = (process.env.AWS_SAM_LOCAL) ? event.queryStringParameters.method : event.httpMethod;
+    const eventMethod = (process.env.AWS_SAM_LOCAL && event.httpMethod === 'GET') ?
+        event.queryStringParameters.method : event.httpMethod;
+    if (eventMethod === 'GET' && (!event.queryStringParameters || !event.queryStringParameters.filename)) {
+        return response(403, 'bad request')
+    };
+    if (eventMethod === 'DELETE' && event.httpMethod === 'GET' &&
+        (!event.queryStringParameters || !event.queryStringParameters.filename)) {
+        return response(403, 'bad request')
+    };
 
     switch (eventMethod) {
+        case 'GET':
+            return exportGetHandler(event);
+            break;
+
         case 'POST':
             return exportPostHandler(event);
             break;
@@ -24,6 +32,10 @@ exports.exportHandler = function (event) {
             return exportDeleteHandler(event);
             break;
 
+        case 'OPTIONS':
+            console.log('aha');
+            return response(200, 'ok');
+
         default:
             return response(405, 'Method not allowed');
             break;
@@ -31,10 +43,35 @@ exports.exportHandler = function (event) {
 
 }
 
+// Export GET handler
+// to respond with summaries + last sync date
+function exportGetHandler(event) {
+    return Promise.all([
+        getFile(event.queryStringParameters.filename, publicBucket),
+        getFileWithDate('id-list-purchasing.json', bucketName)
+    ])
+        .then(makeSumsWithDate)
+        .then(res => response(200, res))
+        .catch(err => response(500, "Oops, server error " + err))
+}
+
+
+function makeSumsWithDate(dataList) {
+    return new Promise((resolve, reject) => {
+        if (dataList.length < 2) reject('some data missing');
+        const outObj = {
+            list: dataList[0],
+            syncDate: dataList[1].syncDate
+        }
+        resolve(outObj);
+    })
+}
+
 // Export POST handler
 // to create new export
 function exportPostHandler(event) {
-    const body = (process.env.AWS_SAM_LOCAL) ? { ids: ["260703856723232639", "260736893579167014"] } : JSON.parse(event.body);
+    const body = (process.env.AWS_SAM_LOCAL && !event.body) ? { ids: ["260703856723232639", "260736893579167014"] }
+        : JSON.parse(event.body);
     const auth = (process.env.AWS_SAM_LOCAL) ? 'Bearer ' + accessToken : event.headers.Authorization;
 
     if (!body.ids) return response(403, 'Bad request');
@@ -222,7 +259,9 @@ function makeDetailRow(record, detail, dataObj) {
 
 // Delete handler (to update summary and delete public file)
 function exportDeleteHandler(event) {
-    const filename = (process.env.AWS_SAM_LOCAL) ? event.queryStringParameters.filename : JSON.parse(event.body).filename;
+    const filename = (process.env.AWS_SAM_LOCAL && event.queryStringParameters && event.queryStringParameters.filename) ?
+        event.queryStringParameters.filename : JSON.parse(event.body).filename;
+    console.log('got here');
     if (!filename || filename.slice(0, 16) !== 'purchase-export-') return response(403, 'Bad request');
 
     return Promise.all([

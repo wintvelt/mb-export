@@ -61,14 +61,18 @@ This package has the following endpoints:
     * `GET`
         * Requires `Authorization` in header for Moneybird 
 * `/export`
+    * `GET`
+        * Retrieves `incoming-summary-list.json` file (from public S3), with date of latest sync
+        * Returns json object with `{ list, syncDate }` structure
     * `POST`
         * Requires `Authorization` in header for Moneybird 
         * Request `Body` requires `ids` with id-list to create export file
-        * Creates a new export file
+        * Creates a new export file and returns new summary list as response
     * `DELETE`
         * Request `Body` requires `{ filename }` with name of export file to delete
         * Will update the summary file (to remove export indicator in items)
         * And delete the filename from public S3 bucket
+        * returns an updated summary list as response
 
 * `/files` to retrieve a file from the public S3 storage
     * `GET`

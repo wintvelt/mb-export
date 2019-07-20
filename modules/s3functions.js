@@ -114,9 +114,23 @@ exports.getFile = function(fileName, bucket) {
             });
         })
         .catch(err => new Promise((resolve, reject) => resolve([])));
-
 }
 
+// File promise that always resolves (empty file returns [])
+exports.getFileWithDate = function(fileName, bucket) {
+    return getPromise({ Bucket: bucket, Key: fileName })
+        .then(data => {
+            const buffer = Buffer.from(data.Body);
+            return new Promise((resolve, reject) => {
+                const outObj = {
+                    list: JSON.parse(buffer.toString('utf8')),
+                    syncDate: data.LastModified
+                }
+                resolve(outObj);
+            });
+        })
+        .catch(err => new Promise((resolve, reject) => resolve([])));
+}
 exports.getPromise = getPromise;
 exports.putPromise = putPromise;
 exports.deletePromise = deletePromise;
