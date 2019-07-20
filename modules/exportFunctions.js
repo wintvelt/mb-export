@@ -33,7 +33,6 @@ exports.exportHandler = function (event) {
             break;
 
         case 'OPTIONS':
-            console.log('aha');
             return response(200, 'ok');
 
         default:
@@ -83,7 +82,7 @@ function exportPostHandler(event) {
     ])
         .then(retrieve)
         .then(createExport)
-        .then(res => response(200, res))
+        .then(res => response(200, res[2]))
         .catch(err => response(500, "Oops, server error " + err))
 }
 
@@ -201,7 +200,8 @@ function createExport(data) {
             Key: 'incoming-summary-list.json',
             Body: JSON.stringify(newSums),
             ContentType: 'application/json'
-        })
+        }),
+        newSums
     ])
 }
 
@@ -269,7 +269,7 @@ function exportDeleteHandler(event) {
         filename
     ])
         .then(updateFiles)
-        .then(res => response(200, res))
+        .then(res => response(200, res[2]))
         .catch(err => response(500, "Oops, server error " + err))
 }
 
@@ -304,7 +304,8 @@ function updateFiles(data) {
         deletePromise({
             Bucket: publicBucket,
             Key: filename
-        })
+        }),
+        newSums
     ])
 }
 
