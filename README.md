@@ -1,7 +1,7 @@
 # Moblybird Finvision export
 
 ### TODO
-* Sync function and Delete should return updated summary-list in JSON
+* Sync function should return updated summary-list in JSON
 
 ---
 
@@ -15,7 +15,7 @@ To update the following files on the public S3 store:
 * export files with name convention `purchase-export-[datetime-stamp].xlsx` 
 
 These files can be accessed by regular `GET` requests (also from browser),  
-at the path: https://moblybird-export-files.s3.eu-central-1.amazonaws.com/ (folder is not public)
+at the path: https://moblybird-export-files.s3.eu-central-1.amazonaws.com/ (files are public, folder is not)
 
 ## Public file structure and usage
 The `incoming-summary-list.json` file is a JSON list of objects with the following structure:
