@@ -77,7 +77,7 @@ function exportPostHandler(event) {
 
     return Promise.all([
         getFile('incoming-summary-list.json', publicBucket),
-        body.ids,
+        body,
         auth
     ])
         .then(retrieve)
@@ -89,17 +89,19 @@ function exportPostHandler(event) {
 // function to process summary-list
 // and retrieve additional info from Moneybird
 function retrieve(data) {
+    const oldSums = data[0];
+    const body = data[1];
+    const auth = data[2];
+
     var filteredSums = [];
-    for (let i = 0; i < data[0].length; i++) {
-        const sumEl = data[0][i];
-        for (let j = 0; j < data[1].length; j++) {
-            const expId = data[1][j];
+    for (let i = 0; i < oldSums.length; i++) {
+        const sumEl = oldSums[i];
+        for (let j = 0; j < body.ids.length; j++) {
+            const expId = body.ids[j];
             if (sumEl.id === expId) filteredSums.push(sumEl)
         }
     }
     if (filteredSums.length === 0) return "nothing to export";
-
-    const auth = data[2];
 
     var purchToGet = [];
     var recToGet = [];
@@ -117,7 +119,8 @@ function retrieve(data) {
         getMoneyData('/tax_rates.json', auth),
         retrieveMoneyData('/documents/purchase_invoices/synchronization.json', auth, purchToGet),
         retrieveMoneyData('/documents/receipts/synchronization.json', auth, recToGet),
-        data[0]
+        oldSums,
+        body.ext
     ])
 }
 
@@ -130,7 +133,8 @@ function createExport(data) {
         taxRates: safeParse(data[1]),
         purchRecords: safeParse(data[2]),
         recRecords: safeParse(data[3]),
-        oldSums: data[4]
+        oldSums: data[4],
+        ext: data[5]
     };
 
     var workbook = new Excel.Workbook();
@@ -160,7 +164,11 @@ function createExport(data) {
         }
     });
     const dateStampFormat = (process.env.AWS_SAM_LOCAL) ? 'YYYYMMDD' : 'YYYYMMDD HHmmss';
-    const exportName = 'purchase-export-' + moment().format(dateStampFormat) + '.xlsx';
+    var exportName = 
+        'purchase-export-' 
+        + moment().format(dateStampFormat) 
+        + ((dataObj.ext)? '-'+dataObj.ext : '')
+        + '.xlsx';
 
     const exportFile = workbook.xlsx.writeBuffer()
         .then(function (buffer) {

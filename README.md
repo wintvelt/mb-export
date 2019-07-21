@@ -12,7 +12,7 @@ Built for Finvision.
 To update the following files on the public S3 store:
 
 * [incoming-summary-list.json](https://moblybird-export-files.s3.eu-central-1.amazonaws.com/incoming-summary-list.json) file with summaries of all incoming purchasing invoices and receipts
-* export files with name convention `purchase-export-[datetime-stamp].xlsx` 
+* export files with name convention `purchase-export-[datetime-stamp]-[optional extension].xlsx` 
 
 These files can be accessed by regular `GET` requests (also from browser),  
 at the path: https://moblybird-export-files.s3.eu-central-1.amazonaws.com/ (files are public, folder is not)
@@ -66,7 +66,9 @@ This package has the following endpoints:
         * Returns json object with `{ list, syncDate }` structure
     * `POST`
         * Requires `Authorization` in header for Moneybird 
-        * Request `Body` requires `ids` with id-list to create export file
+        * Request `Body` requires `{ ids, ext }` 
+            * `ids`: id-list of docs to include in export file
+            * `ext`: (optional) extension to be added to export filename
         * Creates a new export file and returns new summary list as response
     * `DELETE`
         * Request `Body` requires `{ filename }` with name of export file to delete
