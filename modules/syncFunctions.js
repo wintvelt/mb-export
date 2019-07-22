@@ -27,6 +27,9 @@ exports.syncHandler = function (event) {
                 });
             break;
 
+        case 'OPTIONS':
+            return response(200, 'ok');
+
         default:
             return response(405, 'not allowed');
 
@@ -39,7 +42,6 @@ exports.syncHandler = function (event) {
 function compRetrieve(results, auth) {
     const purchaseUpdates = compareOldNew(results[0], results[1]);
     const receiptUpdates = compareOldNew(results[2], results[3]);
-
     const purchNew = getUpdates({
         type: 'purchasing',
         updates: purchaseUpdates[0],
@@ -94,7 +96,6 @@ function updSave(files) {
     const recNew = safeParse(files[2]);
     const recUpdates = safeParse(files[3]);
     const oldSummaries = safeParse(files[4]);
-
     var newSummaries = [];
     // update old summary list
     for (let i = 0; i < oldSummaries.length; i++) {
@@ -127,7 +128,7 @@ function updSave(files) {
         Body: JSON.stringify(newSummaries),
         ContentType: 'application/json'
     }
-    return putPromise(postParams)
+    return putPromise(postParams).then(res => newSummaries);
 }
 
 // Helper for compRetrieve
@@ -152,7 +153,7 @@ function compareOldNew(oldStr = '', latestStr = '') {
             newList.push(latestId);
         }
     }
-    return ([ [...new Set(newList)], [...new Set(updatedList)] ]);
+    return ([[...new Set(newList)], [...new Set(updatedList)]]);
 }
 
 // helper for updSave

@@ -5,7 +5,7 @@ Description: >
   
 Globals:
   Function:
-    Timeout: 10
+    Timeout: 30
 
 Metadata:
   AWS::ServerlessRepo::Application:
@@ -35,7 +35,7 @@ Resources:
           Type: Api
           Properties:
             Path: /sync
-            Method: get
+            Method: any
         Export:
           Type: Api
           Properties:
