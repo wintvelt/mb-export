@@ -1,6 +1,8 @@
 
 modules/SECRETS.js
 packaged.yaml
+.gitignore
+event.json
 
 node_modules/
 jspm_packages/

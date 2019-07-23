@@ -163,7 +163,7 @@ function createExport(data) {
             row.font = { bold: false }
         }
     });
-    const dateStampFormat = (process.env.AWS_SAM_LOCAL) ? 'YYYYMMDD' : 'YYYYMMDD HHmmss';
+    const dateStampFormat = 'YYYYMMDD HHmmss';
     var exportName = 
         'purchase-export-' 
         + moment().format(dateStampFormat) 

@@ -1,8 +1,8 @@
 {
-  "body": "{\"filename\":\"incoming.js\", \"data\":[{\"name\":\"newIncoming\",\"id\":7},{\"name\":\"newIncoming\",\"id\":8}]}",
+  "body": "{ \"ext\": \"initial\", \"ids\": [ ] }",
   "resource": "/{proxy+}",
-  "path": "/files",
-  "httpMethod": "PATCH",
+  "path": "/export",
+  "httpMethod": "POST",
   "isBase64Encoded": false,
   "queryStringParameters": {
     "foo": "bar"
