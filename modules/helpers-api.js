@@ -34,15 +34,25 @@ exports.fetch = function (options) {
     return new Promise(function (resolve, reject) {
 
         const request = https.request(options, (res) => {
+            console.log('fetch inside request');
+            console.log(options.path);
+            console.log(options.method);
             if (res.statusCode < 200 || res.statusCode > 299) {
+                console.log('fetch error');
                 reject(new Error('Failed to load, status code: ' + res.statusCode));
             }
             // temporary data holder
             const body = [];
             // on every content chunk, push it to the data array
-            res.on('data', (chunk) => body.push(chunk));
+            res.on('data', (chunk) => {
+                console.log('fetch did get data',options.path);
+                body.push(chunk)
+            });
             // we are done, resolve promise with those joined chunks
-            res.on('end', () => resolve(body.join('')));
+            res.on('end', () => {
+                console.log('fetch finished', options.path);
+                resolve(body.join(''))
+            });
         });
         // handle connection errors of the request
         request.on('error', (err) => reject(Error(err)));

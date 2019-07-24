@@ -47,7 +47,7 @@ exports.exportHandler = function (event) {
 function exportGetHandler(event) {
     return Promise.all([
         getFile(event.queryStringParameters.filename, publicBucket),
-        getFileWithDate('id-list-purchasing.json', bucketName)
+        getFileWithDate('id-list-all-docs.json', bucketName)
     ])
         .then(makeSumsWithDate)
         .then(res => response(200, res))
@@ -89,6 +89,7 @@ function exportPostHandler(event) {
 // function to process summary-list
 // and retrieve additional info from Moneybird
 function retrieve(data) {
+    console.log('begin retrieve');
     const oldSums = data[0];
     const body = data[1];
     const auth = data[2];
@@ -108,11 +109,15 @@ function retrieve(data) {
     for (let i = 0; i < filteredSums.length; i++) {
         const sumEl = filteredSums[i];
         if (sumEl.type === 'receipt') {
-            recToGet.push(sumEl.id)
+            recToGet.push(sumEl.id);
+            purchToGet.push(sumEl.id);
         } else {
-            purchToGet.push(sumEl.id)
+            recToGet.push(sumEl.id);
+            purchToGet.push(sumEl.id);
         }
     }
+    console.log('end retrieve');
+    console.log(purchToGet, recToGet);
 
     return Promise.all([
         getMoneyData('/ledger_accounts.json', auth),
@@ -120,12 +125,14 @@ function retrieve(data) {
         retrieveMoneyData('/documents/purchase_invoices/synchronization.json', auth, purchToGet),
         retrieveMoneyData('/documents/receipts/synchronization.json', auth, recToGet),
         oldSums,
-        body.ext
+        body
     ])
 }
 
 // function to create export and save files
 function createExport(data) {
+    console.log('begin create export');
+
     if (typeof data === "string") return data;
 
     const dataObj = {
@@ -134,67 +141,80 @@ function createExport(data) {
         purchRecords: safeParse(data[2]),
         recRecords: safeParse(data[3]),
         oldSums: data[4],
-        ext: data[5]
+        body: data[5]
     };
-
-    var workbook = new Excel.Workbook();
-    workbook.creator = 'Wouter';
-    workbook.lastModifiedBy = 'Wouter';
-    workbook.created = new Date(2019, 7, 1);
-
-    var sheet = workbook.addWorksheet('Moblybird export');
-    sheet.addRow([
-        'id', 'referentie', 'status', 'datum', 'vervaldatum', 'contact', 'contactnummer', 'valuta', 'betaald op',
-        'aantal', 'aantal (decimaal)', 'omschrijving', 'categorie', 'categorienummer', 'totaalprijs exclusief btw',
-        'btw-tarief', 'totaalprijs inclusief btw', 'totaalprijs exclusief btw (EUR)', 'totaalprijs inclusief btw (EUR)',
-        'btw-tarief naam', 'btw', 'begin periode', 'eind periode'
-    ]);
+    console.log('made dataObj');
+    console.log(data[2]);
 
     const exportRows = makeExportRows(dataObj);
-    for (let i = 0; i < exportRows.length; i++) {
-        const newRow = exportRows[i];
-        sheet.addRow(newRow);
-    }
+    console.log('begin xls create');
 
-    sheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) {
-            row.font = { bold: true }
-        } else {
-            row.font = { bold: false }
-        }
-    });
     const dateStampFormat = 'YYYYMMDD HHmmss';
-    var exportName = 
-        'purchase-export-' 
-        + moment().format(dateStampFormat) 
-        + ((dataObj.ext)? '-'+dataObj.ext : '')
+    var exportName =
+        ((dataObj.body.noLog) ? 'nolog-' : '')
+        + 'purchase-export-'
+        + moment().format(dateStampFormat)
+        + ((dataObj.body.ext) ? '-' + dataObj.body.ext : '')
         + '.xlsx';
 
-    const exportFile = workbook.xlsx.writeBuffer()
-        .then(function (buffer) {
-            const postParams = {
-                ACL: 'public-read',
-                Bucket: publicBucket,
-                Key: exportName,
-                Body: buffer
+    var exportFile = 'empty export file';
+    if (exportRows.length > 0) {
+        var workbook = new Excel.Workbook();
+        workbook.creator = 'Wouter';
+        workbook.lastModifiedBy = 'Wouter';
+        workbook.created = new Date(2019, 7, 1);
+
+        var sheet = workbook.addWorksheet('Moblybird export');
+        sheet.addRow([
+            'id', 'referentie', 'status', 'datum', 'vervaldatum', 'contact', 'contactnummer', 'valuta', 'betaald op',
+            'aantal', 'aantal (decimaal)', 'omschrijving', 'categorie', 'categorienummer', 'totaalprijs exclusief btw',
+            'btw-tarief', 'totaalprijs inclusief btw', 'totaalprijs exclusief btw (EUR)', 'totaalprijs inclusief btw (EUR)',
+            'btw-tarief naam', 'btw', 'begin periode', 'eind periode'
+        ]);
+
+        for (let i = 0; i < exportRows.length; i++) {
+            const newRow = exportRows[i];
+            sheet.addRow(newRow);
+        }
+
+        sheet.eachRow((row, rowNumber) => {
+            if (rowNumber === 1) {
+                row.font = { bold: true }
+            } else {
+                row.font = { bold: false }
             }
-            return putPromise(postParams)
-                .then(data => {
-                    return response(200, data);
-                })
-                .catch(err => response(500, 'error tje'));
         });
 
+        exportFile = workbook.xlsx.writeBuffer()
+            .then(function (buffer) {
+                const postParams = {
+                    ACL: 'public-read',
+                    Bucket: publicBucket,
+                    Key: exportName,
+                    Body: buffer
+                }
+                return putPromise(postParams)
+                    .then(data => {
+                        return response(200, data);
+                    })
+                    .catch(err => response(500, 'error tje'));
+            });
+    }
+    console.log('begin create new sum file');
     // create new Summary file
-    const allRecords = dataObj.purchRecords.concat(dataObj.recRecords);
+    const expRecords = dataObj.purchRecords.concat(dataObj.recRecords);
     const newSums = [];
     for (let i = 0; i < dataObj.oldSums.length; i++) {
         const oldSum = dataObj.oldSums[i];
-        var newSum = oldSum;
-        for (let j = 0; j < allRecords.length; j++) {
-            const record = allRecords[j];
+        var newSum = Object.assign({}, oldSum);
+        for (let j = 0; j < expRecords.length; j++) {
+            const record = expRecords[j];
             if (record.id === oldSum.id) {
-                newSum = Object.assign({}, oldSum, { fileName: exportName, mutations: [] });
+                newSum.allFiles = [...new Set(newSum.allFiles.concat(exportName))];
+                if (!dataObj.body.noLog) {
+                    newSum.fileName = exportName;
+                    newSum.mutations = [];
+                }
             }
         }
         newSums.push(newSum);
@@ -215,6 +235,8 @@ function createExport(data) {
 
 // Helper function to create new rows for export
 function makeExportRows(dataObj) {
+    console.log('begin make export rows');
+
     const allRecords = dataObj.purchRecords.concat(dataObj.recRecords);
     var exportRows = [];
     for (let i = 0; i < allRecords.length; i++) {
@@ -269,39 +291,43 @@ function makeDetailRow(record, detail, dataObj) {
 function exportDeleteHandler(event) {
     const filename = (process.env.AWS_SAM_LOCAL && event.queryStringParameters && event.queryStringParameters.filename) ?
         event.queryStringParameters.filename : JSON.parse(event.body).filename;
-    console.log('got here');
-    if (!filename || filename.slice(0, 16) !== 'purchase-export-') return response(403, 'Bad request');
 
     return Promise.all([
         getFile('incoming-summary-list.json', publicBucket),
         filename
     ])
         .then(updateFiles)
-        .then(res => response(200, res[2]))
+        .then(res => response(200, res[0]))
         .catch(err => response(500, "Oops, server error " + err))
 }
 
 function updateFiles(data) {
     const oldSums = data[0];
     const filename = data[1];
-    var fileInExport = false;
+    var sumsChanged = false;
     var newSums = [];
     for (let i = 0; i < oldSums.length; i++) {
         const item = oldSums[i];
+        if (item.allFiles && item.allFiles.includes(filename)) {
+            item.allFiles = item.allFiles.filter(fn => (fn !== filename))
+            sumsChanged = true;
+        }
         if (item.fileName && item.fileName === filename) {
             delete item.fileName;
-            fileInExport = true;
-            newSums.push(item);
-        } else {
-            newSums.push(item);
+            sumsChanged = true;
         }
+        newSums.push(item);
     }
-    if (!fileInExport) return deletePromise({
-        Bucket: publicBucket,
-        Key: filename
-    });
+    if (!sumsChanged) return Promise.all([
+        oldSums,
+        deletePromise({
+            Bucket: publicBucket,
+            Key: filename
+        })
+    ])
 
     return Promise.all([
+        newSums,
         putPromise({
             ACL: 'public-read',
             Bucket: publicBucket,
@@ -312,8 +338,7 @@ function updateFiles(data) {
         deletePromise({
             Bucket: publicBucket,
             Key: filename
-        }),
-        newSums
+        })
     ])
 }
 

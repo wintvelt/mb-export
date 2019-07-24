@@ -1,18 +1,15 @@
 # Moblybird Finvision export
 
-### TODO
-* Sync function should return updated summary-list in JSON
-
----
-
 This is a function that handles requests for exporting incoming invoices.
 For syncing with ExactOnline (or any other platform).
 Built for Finvision.
 
+It keeps track of all exports that were made. So you can ensure that no documents are duplicated in export. Or to only make export of mutations, for check and processing later.
+
 To update the following files on the public S3 store:
 
 * [incoming-summary-list.json](https://moblybird-export-files.s3.eu-central-1.amazonaws.com/incoming-summary-list.json) file with summaries of all incoming purchasing invoices and receipts
-* export files with name convention `purchase-export-[datetime-stamp]-[optional extension].xlsx` 
+* export files with name convention `[unlogged]-purchase-export-[datetime-stamp]-[optional extension].xlsx` 
 
 These files can be accessed by regular `GET` requests (also from browser),  
 at the path: https://moblybird-export-files.s3.eu-central-1.amazonaws.com/ (files are public, folder is not)
@@ -26,10 +23,11 @@ The `incoming-summary-list.json` file is a JSON list of objects with the followi
 * `invoiceDate`: Date on the invoice (e.g. "2019-07-11")
 * `status`: State of the document in Moneybird (can be "new", "open", "late", "pending_payment", "late", "paid")
 * `fileName`: (optional) latest export file that included this document (e.g. "purchase-export-20190701 091055.xlsx")
-    * this field with not exist if a) document was never exported or b) export file was deleted through /export API
+    * this field with not exist if a) document was never exported or b) latest sexport file was deleted through /export API
+* `allFiles` : array of all files (including previous - undeleted - exports and unlogged files) that contain this doc
 * `mutations`: List of mutations since the last export (NB: only invoicedate or status changes are tracked)
     * with the following structure
-        * `fieldName` name of field that changed (can be "status", "invoiceDate", "other")
+        * `fieldName` name of field that changed (can be "status", "invoiceDate", "type", "other")
         * `oldValue` (only for status or invoiceDate)
         * `newvalue`
     * When a document is added to an export file, mutations will be cleared
@@ -59,16 +57,18 @@ This package has the following endpoints:
 
 * `/sync` to sync with latest version of Moneybird
     * `GET`
-        * Requires `Authorization` in header for Moneybird 
+        * Requires `Authorization` in header for Moneybird
+        * returns an updated incoming summary list (json)
 * `/export`
     * `GET`
         * Retrieves `incoming-summary-list.json` file (from public S3), with date of latest sync
         * Returns json object with `{ list, syncDate }` structure
     * `POST`
         * Requires `Authorization` in header for Moneybird 
-        * Request `Body` requires `{ ids, ext }` 
+        * Request `Body` structured as `{ ids, ext, noLog }` 
             * `ids`: id-list of docs to include in export file
             * `ext`: (optional) extension to be added to export filename
+            * `noLog`: (optional, default = false) when set to true, export will not be logged
         * Creates a new export file and returns new summary list as response
     * `DELETE`
         * Request `Body` requires `{ filename }` with name of export file to delete
@@ -95,15 +95,16 @@ This package has the following endpoints:
 ## Files stored for sync internally
 The function keeps the following files on S3 for synchronisation:
 
-* `id-list-purchasing.json` ids and version numbers of latest state in Moneybird
-* `id-list-receipts.json` (same for receipts)
+* `id-list-all-docs` contains id, type and version numbers of latest state in Moneybird
 
 ## Export functions under the hood
 The export function has the following flow:
 
 For `POST` (to create new export file)
 1. Retrieve `incoming-summary-list.json` from public S3 (in `exportPostHandler`)
-    * pass file on to next, together with id-list from request and auth
+    * pass file on to next, together with 
+        * auth (from request) to gain access to Moneybird
+        * body from request with id-list, extension, and noLog flag
 2. Obtain relevant data from Moneybird (`retrieve`)
     * filter summary-list using id-list from request (if empty, then abort)
     * retrieve from Moneybird files with data to create export:
@@ -112,11 +113,12 @@ For `POST` (to create new export file)
         * Moneybird records for purchase_invoices to export
         * Moneybird records for receipts to export
     * pass files to next, together with
-        * unfiltered summary-list
+        * unfiltered (original) summary-list
+        * request body (for ext and noLog flag)
 3. Create the export table (`createExport`)
     * On public S3 store save:
-        * `purchase-export-[datetime-stamp].xlsx`
-        * `incoming-summary-list.json` (with updated export filename and reset of mutations with exported items)
+        * `[nolog-]purchase-export-[datetime-stamp]-[ext].xlsx`
+        * `incoming-summary-list.json` with updated export filename and reset of mutations with exported items - this step is skipped if noLog flag is set to true
 
 For `DELETE` (to delete an export file)
 1. Retrieve `incoming-summary-list.json` from public S3 (in `exportDeleteHandler`)

@@ -12,10 +12,9 @@ exports.syncHandler = function (event) {
         case 'GET':
             // initial retrieval of files
             return Promise.all([
-                getFile('id-list-purchasing.json', bucketName),
+                getFile('id-list-all-docs.json', bucketName),
                 getMoneyData('/documents/purchase_invoices/synchronization.json', auth),
-                getFile('id-list-receipts.json', bucketName),
-                getMoneyData('/documents/receipts/synchronization.json', auth)
+                getMoneyData('/documents/receipts/synchronization.json', auth),
             ])
                 .then(res => compRetrieve(res, auth))
                 .then(updSave)
@@ -40,48 +39,32 @@ exports.syncHandler = function (event) {
 // compares them and outputs lists of all new ids, and updated ids
 // together with old summary file
 function compRetrieve(results, auth) {
-    const purchaseUpdates = compareOldNew(results[0], results[1]);
-    const receiptUpdates = compareOldNew(results[2], results[3]);
+    console.log('sync got into compretrieve');
+    const purchases = compareOldNew(results[0], results[1], 'purchase_invoice');
+    const receipts = compareOldNew(results[0], results[2], 'receipt');
+    console.log('sync compare worked');
+    const idListAll = safeParse(results[1]).map(it => Object.assign({}, it, { type: 'purchase_invoice' }))
+        .concat(safeParse(results[2]).map(it => Object.assign({}, it, { type: 'receipt' })));
     const purchNew = getUpdates({
         type: 'purchasing',
-        updates: purchaseUpdates[0],
-        auth: auth
-    });
-
-    const purchUpdates = getUpdates({
-        type: 'purchasing',
-        updates: purchaseUpdates[1],
+        updates: purchases,
         auth: auth
     });
 
     const recNew = getUpdates({
         type: 'receipts',
-        updates: receiptUpdates[0],
+        updates: receipts,
         auth: auth
     });
-
-    const recUpdates = getUpdates({
-        type: 'receipts',
-        updates: receiptUpdates[1],
-        auth: auth
-    });
-
+    console.log('compretrieve made promises');
     return Promise.all([
         purchNew,
-        purchUpdates,
         recNew,
-        recUpdates,
         getFile('incoming-summary-list.json', publicBucket),
         putPromise({
             Bucket: bucketName,
-            Key: 'id-list-purchasing.json',
-            Body: JSON.stringify(results[1]),
-            ContentType: 'application/json'
-        }),
-        putPromise({
-            Bucket: bucketName,
-            Key: 'id-list-receipts.json',
-            Body: JSON.stringify(results[3]),
+            Key: 'id-list-all-docs.json',
+            Body: JSON.stringify(idListAll),
             ContentType: 'application/json'
         })
     ])
@@ -90,37 +73,51 @@ function compRetrieve(results, auth) {
 // updSave: creates new summary list with new and updates
 // and saves to S3
 function updSave(files) {
-    if (files.length !== 7) return "error";
-    const purchNew = safeParse(files[0]);
-    const purchUpdates = safeParse(files[1]);
-    const recNew = safeParse(files[2]);
-    const recUpdates = safeParse(files[3]);
-    const oldSummaries = safeParse(files[4]);
+    console.log('got to updSave');
+    const newDocs = safeParse(files[0])
+        .map(it => Object.assign(it, { type: 'purchase_invoice' }))
+        .concat(safeParse(files[1])
+            .map(it => Object.assign(it, { type: 'receipt' }))
+        );
+    console.log(typeof newDocs);
+    var newIds = new Set(newDocs.map(it => it.id));
+    const oldSummaries = safeParse(files[2]);
     var newSummaries = [];
+    console.log('got to parse input');
     // update old summary list
     for (let i = 0; i < oldSummaries.length; i++) {
+        if (i === 0) console.log('got into oldsum loop');
         const oldSum = oldSummaries[i];
-        const listToCheck = (oldSum.type === 'receipt') ? recUpdates : purchUpdates;
         var newerItem = null;
-        for (let j = 0; j < listToCheck.length; j++) {
-            const item = listToCheck[j];
-            if (item.id === oldSum.id) { newerItem = item }
+        for (let j = 0; j < newDocs.length; j++) {
+            if (j === 0) console.log('got into newdocs loop');
+            const item = newDocs[j];
+            if (item.id === oldSum.id) {
+                newerItem = Object.assign({}, item);
+            }
         }
+        console.log('finished newdocs loop');
         if (newerItem) {
-            newSummaries.push(sumUpdate(oldSum.type, newerItem, oldSum));
+            console.log('got newer item');
+            newSummaries.push(sumUpdate(oldSum, newerItem));
+            newIds.delete(oldSum.id);
+            console.log('deleted item from set');
         } else {
             newSummaries.push(oldSum);
         }
     }
+    console.log('made new sums');
     // add new items to summary
-    for (let i = 0; i < purchNew.length; i++) {
-        const newItem = purchNew[i];
-        newSummaries.push(sumUpdate('purchase_invoice', newItem))
+    for (let i = 0; i < newDocs.length; i++) {
+        const newDoc = newDocs[i];
+        if (i === 0) console.log(newDoc.id);
+        if (newIds.has(newDoc.id)) {
+            if (i === 0) console.log('did set Check');
+            newSummaries.push(sumUpdate(null, newDoc));
+            if (i === 0) console.log('did update with new doc');
+        }
     }
-    for (let i = 0; i < recNew.length; i++) {
-        const newItem = recNew[i];
-        newSummaries.push(sumUpdate('receipt', newItem))
-    }
+    console.log('added sums to new list');
     const postParams = {
         ACL: 'public-read',
         Bucket: publicBucket,
@@ -132,11 +129,10 @@ function updSave(files) {
 }
 
 // Helper for compRetrieve
-function compareOldNew(oldStr = '', latestStr = '') {
+function compareOldNew(oldStr = '', latestStr = '', type) {
     const old = safeParse(oldStr);
     const latest = safeParse(latestStr);
     var newList = [];
-    var updatedList = [];
     for (let i = 0; i < latest.length; i++) {
         const latestId = latest[i].id;
         const latestVersion = latest[i].version;
@@ -144,8 +140,8 @@ function compareOldNew(oldStr = '', latestStr = '') {
         for (let j = 0; j < old.length; j++) {
             if (old[j].id === latestId) {
                 inOld = true;
-                if (old[j].version < latestVersion) {
-                    updatedList.push(latestId);
+                if (old[j].version < latestVersion || old[j].type !== type) {
+                    newList.push(latestId);
                 }
             }
         }
@@ -153,34 +149,55 @@ function compareOldNew(oldStr = '', latestStr = '') {
             newList.push(latestId);
         }
     }
-    return ([[...new Set(newList)], [...new Set(updatedList)]]);
+    return ([...new Set(newList)]);
 }
 
 // helper for updSave
 // to make new summary or update existing
-function sumUpdate(type, newRecord, oldSum = {}) {
+function sumUpdate(oldSum, newRecord) {
+    console.log('starting sumupdate');
     var newSum = {
         id: newRecord.id,
-        type: type,
+        type: newRecord.type,
         createDate: newRecord.created_at,
         invoiceDate: newRecord.date,
         status: newRecord.state,
-        fileName: oldSum.fileName,
-        mutations: oldSum.mutations || []
+        type: newRecord.type,
+        mutations: []
     }
-    if (oldSum.createDate && newSum.invoiceDate !== oldSum.invoiceDate) {
+    if (!oldSum) return newSum;
+    console.log('sumupdate got new item');
+    newSum.fileName = oldSum.fileName || '';
+    newSum.allFiles = oldSum.allFiles || [];
+    console.log('sumupdate did filenames');
+
+    if (!newSum.fileName) return Object.assign(newSum, { mutations : [] });
+
+    if (oldSum.mutations) { newSum.mutations = [...oldSum.mutations] };
+    console.log('sumupdate did mutations');
+    if (newSum.invoiceDate !== oldSum.invoiceDate) {
         newSum.mutations = [...newSum.mutations,
         { fieldName: "invoiceDate", oldValue: oldSum.invoiceDate, newValue: newSum.invoiceDate }
         ];
     }
-    if (oldSum.createDate && newSum.status !== oldSum.status) {
+    console.log('sumupdate checked invoicedate');
+    if (newSum.status !== oldSum.status) {
         newSum.mutations = [...newSum.mutations,
         { fieldName: "status", oldValue: oldSum.status, newValue: newSum.status }
         ];
     }
-    if (oldSum.createDate && newSum.mutations.length === 0) {
-        { fieldName; 'other' }
+    console.log('sumupdate checked status');
+    if (newSum.type !== oldSum.type) {
+        newSum.mutations = [...newSum.mutations,
+        { fieldName: "type", oldValue: oldSum.type, newValue: newSum.type }
+        ];
     }
+    console.log('sumupdate checked type');
+    if (newSum.mutations.length === 0) {
+        newSum.mutations = [ { fieldName: 'other' } ];
+    }
+
+    console.log('sumupdate done');
     return newSum;
 }
 

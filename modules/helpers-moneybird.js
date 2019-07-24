@@ -20,12 +20,14 @@ exports.getMoneyData = function (path, auth) {
 
 // for getting a large set of data based on POST of IDs (following synchronisation)
 exports.retrieveMoneyData = function (path, auth, data = []) {
+    if (data.length === 0) return [];
     if (data.length <= 100) return retrieveSingleMoneyData(path, auth, data);
 
     // make list of lists
     const dataLOL = makeLOL(data, 100);
     const promises = dataLOL.map(singleData => retrieveSingleMoneyData(path, auth, singleData)
         .then(res => safeParse(res)));
+    console.log('made moneybird promises');
     return Promise.all(promises)
         .then(results => {
             return new Promise((resolve, reject) => {
@@ -36,6 +38,9 @@ exports.retrieveMoneyData = function (path, auth, data = []) {
 }
 
 const retrieveSingleMoneyData = function (path, auth, data = []) {
+    console.log('getting money data');
+    console.log(path);
+    console.log(data.length);
     if (data.length === 0) return '';
     const fullpath = '/api/v2/' + adminCode + path;
     const body = JSON.stringify({ ids: data });
