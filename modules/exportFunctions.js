@@ -169,7 +169,7 @@ function createExport(data) {
             'id', 'referentie', 'status', 'datum', 'vervaldatum', 'contact', 'contactnummer', 'valuta', 'betaald op',
             'aantal', 'aantal (decimaal)', 'omschrijving', 'categorie', 'categorienummer', 'totaalprijs exclusief btw',
             'btw-tarief', 'totaalprijs inclusief btw', 'totaalprijs exclusief btw (EUR)', 'totaalprijs inclusief btw (EUR)',
-            'btw-tarief naam', 'btw', 'begin periode', 'eind periode'
+            'btw-tarief naam', 'btw', 'begin periode', 'eind periode', 'datum aanmaak', 'laatste update'
         ]);
 
         for (let i = 0; i < exportRows.length; i++) {
@@ -284,6 +284,8 @@ function makeDetailRow(record, detail, dataObj) {
     newRow.push(vatAmount);
     newRow.push(getPeriod('from', detail.period));
     newRow.push(getPeriod('to', detail.period));
+    newRow.push(record.created_at.slice(0,10));
+    newRow.push(record.updated_at.slice(0,10));
     return newRow;
 }
 
