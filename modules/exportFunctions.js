@@ -1,8 +1,9 @@
 // functions to create an export file
 const { response, safeParse } = require('./helpers-api');
 const { putPromise, deletePromise, getFile, getFileWithDate } = require('./s3functions');
-const { publicBucket, bucketName, accessToken, adminCode } = require('./SECRETS');
+const { publicBucket, bucketName, accessToken } = require('./SECRETS');
 const { getMoneyData, retrieveMoneyData } = require('./helpers-moneybird');
+const { makeExportRows } = require('./helpers-xls');
 
 const Excel = require('exceljs/modern.nodejs');
 const moment = require('moment');
@@ -158,7 +159,7 @@ function createExport(data) {
         + '.xlsx';
 
     var exportFile = 'empty export file';
-    if (exportRows.length > 0) {
+    if (exportRows && exportRows.length > 0) {
         var workbook = new Excel.Workbook();
         workbook.creator = 'Wouter';
         workbook.lastModifiedBy = 'Wouter';
@@ -166,9 +167,10 @@ function createExport(data) {
 
         var sheet = workbook.addWorksheet('Moblybird export');
         sheet.addRow([
-            'id', 'referentie', 'status', 'datum', 'vervaldatum', 'contact', 'contactnummer', 'valuta', 'betaald op',
-            'aantal', 'aantal (decimaal)', 'omschrijving', 'categorie', 'categorienummer', 'totaalprijs exclusief btw',
-            'btw-tarief', 'totaalprijs inclusief btw', 'totaalprijs exclusief btw (EUR)', 'totaalprijs inclusief btw (EUR)',
+            'id', 'link', 'referentie', 'status', 'datum', 'vervaldatum', 'contact', 'contactnummer', 
+            'valuta', 'betaald op', 'aantal', 'aantal (decimaal)', 'omschrijving', 
+            'categorie', 'categorienummer', 'totaalprijs exclusief btw', 'btw-tarief', 
+            'totaalprijs inclusief btw', 'totaalprijs exclusief btw (EUR)', 'totaalprijs inclusief btw (EUR)',
             'btw-tarief naam', 'btw', 'begin periode', 'eind periode', 'datum aanmaak', 'laatste update'
         ]);
 
@@ -184,6 +186,16 @@ function createExport(data) {
                 row.font = { bold: false }
             }
         });
+
+        var linkCol = sheet.getColumn(2);
+        linkCol.font = { color: { argb: 'FF00ACC2' } };
+        sheet.getCell('B1').font = { color: { argb: 'FF000000' } };
+
+        const widths = [ 20, 10, 30, 10, 20, 20, 20, 10, 10, 20, 10, 10, 20, 20,
+        10, 10, 10, 10, 10, 10, 20, 10, 20, 20, 20, 20 ];
+        widths.forEach((v, i) => {
+            sheet.getColumn(i+1).width = v;
+        })
 
         exportFile = workbook.xlsx.writeBuffer()
             .then(function (buffer) {
@@ -233,65 +245,11 @@ function createExport(data) {
     ])
 }
 
-// Helper function to create new rows for export
-function makeExportRows(dataObj) {
-    console.log('begin make export rows');
-
-    const allRecords = dataObj.purchRecords.concat(dataObj.recRecords);
-    var exportRows = [];
-    for (let i = 0; i < allRecords.length; i++) {
-        const item = allRecords[i];
-        for (let j = 0; j < item.details.length; j++) {
-            const detail = item.details[j];
-            const newRow = makeDetailRow(item, detail, dataObj);
-            exportRows.push(newRow)
-        }
-    }
-    return exportRows;
-}
-
-// to rows per detail for export
-function makeDetailRow(record, detail, dataObj) {
-    var newRow = [];
-    // id, including link
-    newRow.push({
-        text: record.id,
-        hyperlink: 'https://moneybird.com/' + adminCode + '/documents/' + record.id,
-        tooltip: 'Klik om naar Moneybird doc te gaan'
-    });
-    newRow.push(record.reference);
-    newRow.push(record.state);
-    newRow.push(record.date);
-    newRow.push(record.due_date);
-    newRow.push(record.contact.company_name);
-    newRow.push(record.contact.customer_id);
-    newRow.push(record.currency);
-    newRow.push(record.paid_at);
-    newRow.push(detail.amount);
-    newRow.push(tryParse(detail.amount_decimal));
-    newRow.push(detail.description);
-    newRow.push(getField('name', detail.ledger_account_id, dataObj.ledgers));
-    newRow.push(tryParse(getField('account_id', detail.ledger_account_id, dataObj.ledgers)));
-    newRow.push(tryParse(detail.total_price_excl_tax_with_discount));
-    const taxrate = tryParse(getField('percentage', detail.tax_rate_id, dataObj.taxRates))
-    newRow.push(taxrate);
-    newRow.push(tryParse(detail.price));
-    const eurPriceEx = tryParse(detail.total_price_excl_tax_with_discount_base);
-    newRow.push(eurPriceEx);
-    const vatAmount = Math.round(eurPriceEx * taxrate) / 100;
-    newRow.push(eurPriceEx + vatAmount);
-    newRow.push(getField('name', detail.tax_rate_id, dataObj.taxRates));
-    newRow.push(vatAmount);
-    newRow.push(getPeriod('from', detail.period));
-    newRow.push(getPeriod('to', detail.period));
-    newRow.push(record.created_at.slice(0,10));
-    newRow.push(record.updated_at.slice(0,10));
-    return newRow;
-}
-
 // Delete handler (to update summary and delete public file)
 function exportDeleteHandler(event) {
-    const filename = (process.env.AWS_SAM_LOCAL && event.queryStringParameters && event.queryStringParameters.filename) ?
+    const filename = (process.env.AWS_SAM_LOCAL
+        && event.queryStringParameters &&
+        event.queryStringParameters.filename) ?
         event.queryStringParameters.filename : JSON.parse(event.body).filename;
 
     return Promise.all([
@@ -342,35 +300,4 @@ function updateFiles(data) {
             Key: filename
         })
     ])
-}
-
-// helper to get data from MoneyBird
-function getField(fieldName, id, mbList) {
-    var value = null;
-    for (let i = 0; i < mbList.length; i++) {
-        const item = mbList[i];
-        if (item.id === id) { value = item[fieldName] }
-    }
-    return value;
-}
-
-// helper to try parse
-function tryParse(value) {
-    var outVal = parseFloat(value);
-    if (isNaN(outVal)) {
-        return value;
-    } else {
-        return outVal;
-    }
-}
-
-// helper to extract period
-function getPeriod(type, period) {
-    if (typeof period !== 'string' || period.length !== 18) return null;
-    const start = (type === 'from') ? 0 : 10;
-    return new Date(
-        parseInt(period.slice(start, start + 4)),
-        parseInt(period.slice(start + 4, start + 6)),
-        parseInt(period.slice(start + 6, start + 8))
-    )
 }

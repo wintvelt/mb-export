@@ -6,10 +6,10 @@ const { getMoneyData, retrieveMoneyData } = require('./helpers-moneybird');
 
 exports.syncHandler = function (event) {
     const auth = (process.env.AWS_SAM_LOCAL) ? 'Bearer ' + accessToken : event.headers.Authorization;
-    if (!auth) return response(400, 'Bad request');
 
     switch (event.httpMethod) {
         case 'GET':
+            if (!auth) return response(400, 'Bad request');
             // initial retrieval of files
             return Promise.all([
                 getFile('id-list-all-docs.json', bucketName),
