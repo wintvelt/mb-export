@@ -76,8 +76,10 @@ function updSave(files) {
     console.log('got to updSave');
     const newDocs = safeParse(files[0])
         .map(it => Object.assign(it, { type: 'purchase_invoice' }))
+        .filter(it => (it.status !== 'new'))
         .concat(safeParse(files[1])
             .map(it => Object.assign(it, { type: 'receipt' }))
+            .filter(it => (it.status !== 'new'))
         );
     console.log(typeof newDocs);
     var newIds = new Set(newDocs.map(it => it.id));
