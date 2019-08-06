@@ -76,14 +76,14 @@ function updSave(files) {
     console.log('got to updSave');
     const newDocs = safeParse(files[0])
         .map(it => Object.assign(it, { type: 'purchase_invoice' }))
-        .filter(it => (it.state !== 'new'))
+        .filter(it => { return (it.status !== 'new')})
         .concat(safeParse(files[1])
             .map(it => Object.assign(it, { type: 'receipt' }))
-            .filter(it => (it.state !== 'new'))
+            .filter(it => { return (it.status !== 'new')})
         );
     console.log(typeof newDocs);
     var newIds = new Set(newDocs.map(it => it.id));
-    const oldSummaries = safeParse(files[2]).filter(it => (it.state !== 'new'));
+    const oldSummaries = safeParse(files[2]).filter(it => (it.status !== 'new'));
     var newSummaries = [];
     console.log('got to parse input');
     // update old summary list

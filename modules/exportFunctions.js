@@ -218,7 +218,7 @@ function createExport(data) {
     const newSums = [];
     for (let i = 0; i < dataObj.oldSums.length; i++) {
         const oldSum = dataObj.oldSums[i];
-        var newSum = Object.assign({}, oldSum);
+        var newSum = Object.assign({}, { allFiles : [] }, oldSum);
         for (let j = 0; j < expRecords.length; j++) {
             const record = expRecords[j];
             if (record.id === oldSum.id) {
