@@ -1,12 +1,10 @@
 // dependencies
-// import async from 'async';
 const { fileHandler } = require('./modules/s3functions');
 const { syncHandler } = require('./modules/syncFunctions');
 const { exportHandler } = require('./modules/exportFunctions');
 const { response } = require('./modules/helpers-api');
 
 exports.handler = async function (event) {
-    // Read options from the event.
 
     switch (event.path) {
         case '/files':
