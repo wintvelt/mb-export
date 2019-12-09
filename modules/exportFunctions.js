@@ -151,7 +151,7 @@ function createExport(data) {
     console.log('begin xls create');
 
     const dateStampFormat = 'YYYYMMDD HHmmss';
-    var exportName =
+    var exportName = 
         ((dataObj.body.noLog) ? 'nolog-' : '')
         + 'purchase-export-'
         + moment().format(dateStampFormat)
