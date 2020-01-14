@@ -77,10 +77,10 @@ function updSave(files) {
     console.log('got to updSave');
     const newDocs = safeParse(files[0])
         .map(it => Object.assign(it, { type: 'purchase_invoice' }))
-        .filter(it => { return (it.status !== 'new')})
+        .filter(it => { return (it.status !== 'new') })
         .concat(safeParse(files[1])
             .map(it => Object.assign(it, { type: 'receipt' }))
-            .filter(it => { return (it.status !== 'new')})
+            .filter(it => { return (it.status !== 'new') })
         );
     console.log(typeof newDocs);
     var newIds = new Set(newDocs.map(it => it.id));
@@ -121,13 +121,20 @@ function updSave(files) {
         }
     }
     console.log('added sums to new list');
-    // log deleted items
-    const allCurrentIds = files[4]? files[4].map(it => it.id) : [];
-    let newerSummaries = newSummaries.map(newSum => {
-        return (allCurrentIds.includes(newSum.id))?
-            newSum
-            : { ...newSum, deleted: true }
-    });
+    // log deleted items = remove if not exported, log if already exported
+    const allCurrentIds = files[4] ? files[4].map(it => it.id) : [];
+    let newerSummaries = newSummaries
+        .filter(newSum => (allCurrentIds.includes(newSum.id) || !!newSum.fileName))
+        .map(newSum => {
+            const isNewlyDeleted = !allCurrentIds.includes(newSum.id) && !newSum.docDeleted;
+            return (isNewlyDeleted) ?
+                {
+                    ...newSum, mutations: [
+                        ...newSum.mutations.filter(it => !it.docDeleted), { docDeleted: true }
+                    ]
+                }
+                : newSum
+        });
     const postParams = {
         ACL: 'public-read',
         Bucket: publicBucket,
@@ -172,8 +179,7 @@ function sumUpdate(oldSum, newRecord) {
         createDate: newRecord.created_at,
         invoiceDate: newRecord.date,
         status: newRecord.state,
-        mutations: [],
-        deleted: false
+        mutations: []
     }
     if (!oldSum) return newSum;
     console.log('sumupdate got new item');
@@ -181,7 +187,7 @@ function sumUpdate(oldSum, newRecord) {
     newSum.allFiles = oldSum.allFiles || [];
     console.log('sumupdate did filenames');
 
-    if (!newSum.fileName) return Object.assign(newSum, { mutations : [] });
+    if (!newSum.fileName) return Object.assign(newSum, { mutations: [] });
 
     if (oldSum.mutations) { newSum.mutations = [...oldSum.mutations] };
     console.log('sumupdate did mutations');
@@ -204,7 +210,7 @@ function sumUpdate(oldSum, newRecord) {
     }
     console.log('sumupdate checked type');
     if (newSum.mutations.length === 0) {
-        newSum.mutations = [ { fieldName: 'other' } ];
+        newSum.mutations = [{ fieldName: 'other' }];
     }
 
     console.log('sumupdate done');

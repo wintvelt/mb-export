@@ -17,6 +17,15 @@ exports.makeExportRows = function (dataObj) {
             }
         }
     }
+    const allCurrentIds = allRecords.map(it => it.id);
+    const allExportIds = dataObj.body.ids;
+    allExportIds.forEach(id => {
+        const oldSum = dataObj.oldSums.find(it => it.id === id);
+        if (oldSum && !allCurrentIds.includes(id)) {
+            const newRow = makeDeletedRow(oldSum);
+            exportRows.push(newRow);
+        }
+    });
     return exportRows;
 }
 
@@ -64,6 +73,19 @@ function makeDetailRow(record, detail, dataObj) {
         if (cellValue) newRow[i] = cellValue
     }
 
+    return newRow;
+}
+
+function makeDeletedRow(record) {
+    let newRow = [record.id];
+    newRow[2] = 'Document verwijderd';
+    newRow[3] = 'DELETED';
+    newRow[6] = `${record.fileName} bevat meest recente detailgegevens`;
+    newRow[11] = {
+        text: 'link',
+        hyperlink: 'https://moblybird-export-files.s3.eu-central-1.amazonaws.com/'+record.filename,
+        tooltip: 'Klik om naar Excel doc te gaan',
+    }
     return newRow;
 }
 

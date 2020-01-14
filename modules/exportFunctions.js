@@ -69,8 +69,8 @@ function makeSumsWithDate(dataList) {
 // Export POST handler
 // to create new export
 function exportPostHandler(event) {
-    const body = (process.env.AWS_SAM_LOCAL && !event.body) ? 
-        (event.queryStringParameters && event.queryStringParameters.body && 
+    const body = (process.env.AWS_SAM_LOCAL && !event.body) ?
+        (event.queryStringParameters && event.queryStringParameters.body &&
             JSON.parse(decodeURI(event.queryStringParameters.body)))
         : JSON.parse(event.body);
     const auth = (process.env.AWS_SAM_LOCAL) ? 'Bearer ' + accessToken : event.headers.Authorization;
@@ -152,7 +152,7 @@ function createExport(data) {
     console.log('begin xls create');
 
     const dateStampFormat = 'YYYYMMDD HHmmss';
-    var exportName = 
+    var exportName =
         ((dataObj.body.noLog) ? 'nolog-' : '')
         + 'purchase-export-'
         + moment().format(dateStampFormat)
@@ -168,9 +168,9 @@ function createExport(data) {
 
         var sheet = workbook.addWorksheet('Moblybird export');
         sheet.addRow([
-            'id', 'link', 'referentie', 'status', 'datum', 'vervaldatum', 'contact', 'contactnummer', 
-            'valuta', 'betaald op', 'aantal', 'aantal (decimaal)', 'omschrijving', 
-            'categorie', 'categorienummer', 'totaalprijs exclusief btw', 'btw-tarief', 
+            'id', 'link', 'referentie', 'status', 'datum', 'vervaldatum', 'contact', 'contactnummer',
+            'valuta', 'betaald op', 'aantal', 'aantal (decimaal)', 'omschrijving',
+            'categorie', 'categorienummer', 'totaalprijs exclusief btw', 'btw-tarief',
             'totaalprijs inclusief btw', 'totaalprijs exclusief btw (EUR)', 'totaalprijs inclusief btw (EUR)',
             'btw-tarief naam', 'btw', 'begin periode', 'eind periode', 'datum aanmaak', 'laatste update'
         ]);
@@ -192,10 +192,10 @@ function createExport(data) {
         linkCol.font = { color: { argb: 'FF00ACC2' } };
         sheet.getCell('B1').font = { color: { argb: 'FF000000' } };
 
-        const widths = [ 20, 10, 30, 10, 20, 20, 20, 10, 10, 20, 10, 10, 20, 20,
-        10, 10, 10, 10, 10, 10, 20, 10, 20, 20, 20, 20 ];
+        const widths = [20, 10, 30, 10, 20, 20, 20, 10, 10, 20, 10, 10, 20, 20,
+            10, 10, 10, 10, 10, 10, 20, 10, 20, 20, 20, 20];
         widths.forEach((v, i) => {
-            sheet.getColumn(i+1).width = v;
+            sheet.getColumn(i + 1).width = v;
         })
 
         exportFile = workbook.xlsx.writeBuffer()
@@ -219,15 +219,26 @@ function createExport(data) {
     const newSums = [];
     for (let i = 0; i < dataObj.oldSums.length; i++) {
         const oldSum = dataObj.oldSums[i];
-        var newSum = Object.assign({}, { allFiles : [] }, oldSum);
+        let newSum = Object.assign({}, { allFiles: [] }, oldSum);
+        let inExport = false;
         for (let j = 0; j < expRecords.length; j++) {
             const record = expRecords[j];
             if (record.id === oldSum.id) {
+                inExport = true;
                 newSum.allFiles = [...new Set(newSum.allFiles.concat(exportName))];
                 if (!dataObj.body.noLog) {
                     newSum.fileName = exportName;
                     newSum.mutations = [];
                 }
+            }
+        }
+        const shouldMarkAsDeleted = !inExport && dataObj.body.ids.includes(oldSum.id);
+        if (shouldMarkAsDeleted) {
+            newSum.allFiles = [...new Set(newSum.allFiles.concat(exportName))];
+            if (!dataObj.body.noLog) {
+                newSum.fileName = exportName;
+                newSum.mutations = [];
+                newSum.docDeleted = true;
             }
         }
         newSums.push(newSum);
