@@ -38,7 +38,7 @@ exports.fetch = function (options) {
             console.log(options.path);
             console.log(options.method);
             if (res.statusCode < 200 || res.statusCode > 299) {
-                console.log('fetch error');
+                console.log('fetch error '+res.statusCode);
                 reject(new Error('Failed to load, status code: ' + res.statusCode));
             }
             // temporary data holder

@@ -12,14 +12,13 @@ const moment = require('moment');
 exports.exportHandler = function (event) {
     const eventMethod = (process.env.AWS_SAM_LOCAL && event.httpMethod === 'GET') ?
         event.queryStringParameters.method : event.httpMethod;
-    if (eventMethod === 'GET' && (!event.queryStringParameters || !event.queryStringParameters.filename)) {
+    if (eventMethod === 'GET' && !(event.queryStringParameters && event.queryStringParameters.filename)) {
         return response(403, 'bad request')
     };
     if (eventMethod === 'DELETE' && event.httpMethod === 'GET' &&
         (!event.queryStringParameters || !event.queryStringParameters.filename)) {
         return response(403, 'bad request')
     };
-
     switch (eventMethod) {
         case 'GET':
             return exportGetHandler(event);
@@ -70,7 +69,9 @@ function makeSumsWithDate(dataList) {
 // Export POST handler
 // to create new export
 function exportPostHandler(event) {
-    const body = (process.env.AWS_SAM_LOCAL && !event.body) ? { ids: ["260703856723232639", "260736893579167014"] }
+    const body = (process.env.AWS_SAM_LOCAL && !event.body) ? 
+        (event.queryStringParameters && event.queryStringParameters.body && 
+            JSON.parse(decodeURI(event.queryStringParameters.body)))
         : JSON.parse(event.body);
     const auth = (process.env.AWS_SAM_LOCAL) ? 'Bearer ' + accessToken : event.headers.Authorization;
 

@@ -66,7 +66,8 @@ function compRetrieve(results, auth) {
             Key: 'id-list-all-docs.json',
             Body: JSON.stringify(idListAll),
             ContentType: 'application/json'
-        })
+        }),
+        idListAll
     ])
 }
 
@@ -120,11 +121,18 @@ function updSave(files) {
         }
     }
     console.log('added sums to new list');
+    // log deleted items
+    const allCurrentIds = files[4]? files[4].map(it => it.id) : [];
+    let newerSummaries = newSummaries.map(newSum => {
+        return (allCurrentIds.includes(newSum.id))?
+            newSum
+            : { ...newSum, deleted: true }
+    });
     const postParams = {
         ACL: 'public-read',
         Bucket: publicBucket,
         Key: 'incoming-summary-list.json',
-        Body: JSON.stringify(newSummaries),
+        Body: JSON.stringify(newerSummaries),
         ContentType: 'application/json'
     }
     return putPromise(postParams).then(res => newSummaries);
@@ -164,8 +172,8 @@ function sumUpdate(oldSum, newRecord) {
         createDate: newRecord.created_at,
         invoiceDate: newRecord.date,
         status: newRecord.state,
-        type: newRecord.type,
-        mutations: []
+        mutations: [],
+        deleted: false
     }
     if (!oldSum) return newSum;
     console.log('sumupdate got new item');
