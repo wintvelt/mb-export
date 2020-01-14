@@ -152,21 +152,21 @@ function createExport(data) {
     console.log('begin xls create');
 
     const dateStampFormat = 'YYYYMMDD HHmmss';
-    var exportName =
+    let exportName =
         ((dataObj.body.noLog) ? 'nolog-' : '')
         + 'purchase-export-'
         + moment().format(dateStampFormat)
         + ((dataObj.body.ext) ? '-' + dataObj.body.ext : '')
         + '.xlsx';
 
-    var exportFile = 'empty export file';
+    let exportFile = 'empty export file';
     if (exportRows && exportRows.length > 0) {
-        var workbook = new Excel.Workbook();
+        let workbook = new Excel.Workbook();
         workbook.creator = 'Wouter';
         workbook.lastModifiedBy = 'Wouter';
         workbook.created = new Date(2019, 7, 1);
 
-        var sheet = workbook.addWorksheet('Moblybird export');
+        let sheet = workbook.addWorksheet('Moblybird export');
         sheet.addRow([
             'id', 'link', 'referentie', 'status', 'datum', 'vervaldatum', 'contact', 'contactnummer',
             'valuta', 'betaald op', 'aantal', 'aantal (decimaal)', 'omschrijving',
@@ -188,9 +188,13 @@ function createExport(data) {
             }
         });
 
-        var linkCol = sheet.getColumn(2);
+        let linkCol = sheet.getColumn(2);
         linkCol.font = { color: { argb: 'FF00ACC2' } };
         sheet.getCell('B1').font = { color: { argb: 'FF000000' } };
+
+        sheet.getColumn(12).eachCell(cell => {
+            if (cell.text === 'link') cell.font = { color: { argb: 'FF00ACC2' } }
+        });
 
         const widths = [20, 10, 30, 10, 20, 20, 20, 10, 10, 20, 10, 10, 20, 20,
             10, 10, 10, 10, 10, 10, 20, 10, 20, 20, 20, 20];
@@ -246,7 +250,7 @@ function createExport(data) {
 
     return Promise.all([
         exportFile,
-        putPromise({
+        !dataObj.body.noLog && putPromise({
             ACL: 'public-read',
             Bucket: publicBucket,
             Key: 'incoming-summary-list.json',
