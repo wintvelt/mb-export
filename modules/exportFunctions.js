@@ -1,7 +1,7 @@
 // functions to create an export file
 const { response, safeParse } = require('./helpers-api');
 const { putPromise, deletePromise, getFile, getFileWithDate } = require('./s3functions');
-const { publicBucket, bucketName, accessToken } = require('./SECRETS');
+const { bucketName, publicFolder, internalFolder, accessToken } = require('./SECRETS');
 const { getMoneyData, retrieveMoneyData } = require('./helpers-moneybird');
 const { makeExportRows } = require('./helpers-xls');
 
@@ -46,8 +46,8 @@ exports.exportHandler = function (event) {
 // to respond with summaries + last sync date
 function exportGetHandler(event) {
     return Promise.all([
-        getFile(event.queryStringParameters.filename, publicBucket),
-        getFileWithDate('id-list-all-docs.json', bucketName)
+        getFile(publicFolder + '/' + event.queryStringParameters.filename, bucketName),
+        getFileWithDate(internalFolder + '/id-list-all-docs.json', bucketName)
     ])
         .then(makeSumsWithDate)
         .then(res => response(200, res))
@@ -78,7 +78,7 @@ function exportPostHandler(event) {
     if (!body.ids) return response(403, 'Bad request');
 
     return Promise.all([
-        getFile('incoming-summary-list.json', publicBucket),
+        getFile(publicFolder + '/incoming-summary-list.json', bucketName),
         body,
         auth
     ])
@@ -206,8 +206,8 @@ function createExport(data) {
             .then(function (buffer) {
                 const postParams = {
                     ACL: 'public-read',
-                    Bucket: publicBucket,
-                    Key: exportName,
+                    Bucket: bucketName,
+                    Key: publicFolder + '/' + exportName,
                     Body: buffer
                 }
                 return putPromise(postParams)
@@ -252,8 +252,8 @@ function createExport(data) {
         exportFile,
         !dataObj.body.noLog && putPromise({
             ACL: 'public-read',
-            Bucket: publicBucket,
-            Key: 'incoming-summary-list.json',
+            Bucket: bucketName,
+            Key: publicFolder + '/incoming-summary-list.json',
             Body: JSON.stringify(newSums),
             ContentType: 'application/json'
         }),
@@ -269,7 +269,7 @@ function exportDeleteHandler(event) {
         event.queryStringParameters.filename : JSON.parse(event.body).filename;
 
     return Promise.all([
-        getFile('incoming-summary-list.json', publicBucket),
+        getFile(publicFolder + '/incoming-summary-list.json', bucketName),
         filename
     ])
         .then(updateFiles)
@@ -297,8 +297,8 @@ function updateFiles(data) {
     if (!sumsChanged) return Promise.all([
         oldSums,
         deletePromise({
-            Bucket: publicBucket,
-            Key: filename
+            Bucket: bucketName,
+            Key: publicFolder + '/' + filename
         })
     ])
 
@@ -306,14 +306,14 @@ function updateFiles(data) {
         newSums,
         putPromise({
             ACL: 'public-read',
-            Bucket: publicBucket,
-            Key: 'incoming-summary-list.json',
+            Bucket: bucketName,
+            Key: publicFolder + '/incoming-summary-list.json',
             Body: JSON.stringify(newSums),
             ContentType: 'application/json'
         }),
         deletePromise({
-            Bucket: publicBucket,
-            Key: filename
+            Bucket: bucketName,
+            Key: publicFolder + '/' + filename
         })
     ])
 }

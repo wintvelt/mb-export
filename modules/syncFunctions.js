@@ -1,5 +1,5 @@
 // Functions to get latest data from Moneybird, and update the summary on S3
-const { bucketName, publicBucket, accessToken } = require('./SECRETS');
+const { bucketName, internalFolder, publicFolder, accessToken } = require('./SECRETS');
 const { response, safeParse } = require('./helpers-api');
 const { putPromise, getFile } = require('./s3functions');
 const { getMoneyData, retrieveMoneyData } = require('./helpers-moneybird');
@@ -12,7 +12,7 @@ exports.syncHandler = function (event) {
             if (!auth) return response(400, 'Bad request');
             // initial retrieval of files
             return Promise.all([
-                getFile('id-list-all-docs.json', bucketName),
+                getFile(internalFolder+'/id-list-all-docs.json', bucketName),
                 getMoneyData('/documents/purchase_invoices/synchronization.json', auth),
                 getMoneyData('/documents/receipts/synchronization.json', auth),
             ])
@@ -60,10 +60,10 @@ function compRetrieve(results, auth) {
     return Promise.all([
         purchNew,
         recNew,
-        getFile('incoming-summary-list.json', publicBucket),
+        getFile(publicFolder+'/incoming-summary-list.json', bucketName),
         putPromise({
             Bucket: bucketName,
-            Key: 'id-list-all-docs.json',
+            Key: internalFolder+'/id-list-all-docs.json',
             Body: JSON.stringify(idListAll),
             ContentType: 'application/json'
         }),
@@ -137,8 +137,8 @@ function updSave(files) {
         });
     const postParams = {
         ACL: 'public-read',
-        Bucket: publicBucket,
-        Key: 'incoming-summary-list.json',
+        Bucket: bucketName,
+        Key: publicFolder + '/incoming-summary-list.json',
         Body: JSON.stringify(newerSummaries),
         ContentType: 'application/json'
     }
