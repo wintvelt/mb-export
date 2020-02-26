@@ -9,7 +9,7 @@ Globals:
 
 Metadata:
   AWS::ServerlessRepo::Application:
-    Name: mb-finvision-export
+    Name: moblybird-finvision-export
     Description: Export function for finvision
     Author: Wouter
     License: license.txt
@@ -19,7 +19,7 @@ Metadata:
 
 
 Resources:
-  IncomingFunction:
+  MoblybirdFinvisionExportFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: 
@@ -47,17 +47,17 @@ Outputs:
   # Find out more about other implicit resources you can reference within SAM
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   FilesApi:
-    Description: "API Gateway endpoint URL for Prod stage for files path of Incomingfunction"
+    Description: "API Gateway endpoint URL for Prod stage for files path of MoblybirdFinvisionExportFunction"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/files/"
   SyncApi:
-    Description: "API Gateway endpoint URL for Prod stage for Incoming function"
+    Description: "API Gateway endpoint URL for Prod stage for MoblybirdFinvisionExportFunction function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/sync/"
   ExportApi:
-    Description: "API Gateway endpoint URL for Prod stage for Incoming function"
+    Description: "API Gateway endpoint URL for Prod stage for MoblybirdFinvisionExportFunction function"
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/export/"
-  IncomingFunction:
-    Description: "Incoming Lambda Function ARN"
-    Value: !GetAtt IncomingFunction.Arn
+  MoblybirdFinvisionExportFunction:
+    Description: "MoblybirdFinvisionExportFunction Lambda Function ARN"
+    Value: !GetAtt MoblybirdFinvisionExportFunction.Arn
   IncomingFunctionIamRole:
-    Description: "Implicit IAM Role created for Incoming function"
-    Value: !GetAtt IncomingFunctionRole.Arn
+    Description: "Implicit IAM Role created for MoblybirdFinvisionExportFunction function"
+    Value: !GetAtt MoblybirdFinvisionExportFunctionRole.Arn
