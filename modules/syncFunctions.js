@@ -19,9 +19,11 @@ exports.syncHandler = function (event) {
                 .then(res => compRetrieve(res, auth))
                 .then(updSave)
                 .then(res => {
+                    console.log(`exit with 200 OK`)
                     return response(200, res)
                 })
                 .catch(error => {
+                    console.log(`exit with 500 ${error}`)
                     return response(500, 'strange error ' + error);
                 });
             break;
@@ -93,18 +95,18 @@ function updSave(files) {
         const oldSum = oldSummaries[i];
         var newerItem = null;
         for (let j = 0; j < newDocs.length; j++) {
-            if (j === 0) console.log('got into newdocs loop');
+            // if (j === 0) console.log('got into newdocs loop');
             const item = newDocs[j];
             if (item.id === oldSum.id) {
                 newerItem = Object.assign({}, item);
             }
         }
-        console.log('finished newdocs loop');
+        // console.log('finished newdocs loop');
         if (newerItem) {
-            console.log('got newer item');
+            // console.log('got newer item');
             newSummaries.push(sumUpdate(oldSum, newerItem));
             newIds.delete(oldSum.id);
-            console.log('deleted item from set');
+            // console.log('deleted item from set');
         } else {
             newSummaries.push(oldSum);
         }
