@@ -21,7 +21,7 @@
   },
   "homepage": "https://github.com/wintvelt/mb-export#readme",
   "dependencies": {
-    "aws-sdk": "^2.493.0",
+    "aws-sdk": "^2.814.0",
     "exceljs": "^1.13.0",
     "moment": "^2.24.0"
   }
