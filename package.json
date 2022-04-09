@@ -23,6 +23,6 @@
   "dependencies": {
     "aws-sdk": "^2.493.0",
     "exceljs": "^1.13.0",
-    "moment": "^2.24.0"
+    "moment": "^2.29.2"
   }
 }
